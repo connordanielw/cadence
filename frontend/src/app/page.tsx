@@ -38,7 +38,7 @@ export default function HomePage() {
         </h1>
         <p className="hero__sub">
           Upload sheet music and audio. Cadence tags everything with AI
-          and lets you search by feel, key, mood, or era — not by filename.
+          and lets you search by feel, key, mood, era and more. 
         </p>
         <HeroCta />
       </section>
@@ -49,7 +49,6 @@ export default function HomePage() {
         <div className="lp-feature-grid">
           {FEATURES.map((f) => (
             <div key={f.label} className="lp-feature">
-              <span className="lp-feature__num">{f.label}</span>
               <h3 className="lp-feature__title">{f.title}</h3>
               <p className="lp-feature__desc">{f.desc}</p>
             </div>
@@ -78,7 +77,7 @@ export default function HomePage() {
               <span className="demo-card__title">Search</span>
             </div>
             <div className="demo-card__body">
-              <div className="demo-query">&ldquo;sparse melancholy piano, minor key&rdquo;</div>
+              <div className="demo-query">&ldquo;sparse melancholy piano&rdquo;</div>
               <div className="demo-results">
                 <div className="demo-result">
                   <span className="demo-result__score">97%</span>
