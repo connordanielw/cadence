@@ -7,6 +7,7 @@ export interface PieceTags {
   mood?: string[];
   key?: string | null;
   tempo_feel?: string | null;
+  bpm?: number | null;
   era?: string | null;
   instrumentation?: string[];
   summary?: string | null;
