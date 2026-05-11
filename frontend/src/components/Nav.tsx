@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 const links = [
   { href: "/",        label: "Search",  color: "bondi"     },
@@ -26,7 +26,12 @@ export default function Nav() {
             {l.label}
           </Link>
         ))}
-        <UserButton />
+        <SignedOut>
+          <Link href="/sign-in" className="btn" style={{ padding: "5px 14px", fontSize: 13 }}>Sign in</Link>
+        </SignedOut>
+        <SignedIn>
+          <UserButton />
+        </SignedIn>
       </div>
     </nav>
   );
