@@ -7,62 +7,70 @@ import { NextRequest, NextResponse } from "next/server";
 // so the Vercel 4.5 MB body limit doesn't apply here.
 export const maxDuration = 60;
 
-
 const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8000";
 
-async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
-  const { path } = await ctx.params;
-  const tail = path.join("/");
-  const url = new URL(`${BACKEND}/${tail}`);
-  req.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v));
-
-  const init: RequestInit = {
-    method: req.method,
-    headers: stripHopHeaders(req.headers),
-    redirect: "manual",
-  };
-  if (req.method !== "GET" && req.method !== "HEAD") {
-    // Buffer the body — streaming with duplex:"half" is unreliable on Vercel
-    init.body = await req.arrayBuffer();
-  }
-
-  let upstream: Response;
-  try {
-    upstream = await fetch(url, init);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[proxy] fetch failed → ${url}:`, msg);
-    return new NextResponse(JSON.stringify({ error: "proxy_fetch_failed", detail: msg }), {
-      status: 502,
-      headers: { "content-type": "application/json" },
-    });
-  }
-  // Buffer the body — streaming ReadableStream through NextResponse is unreliable on Vercel.
-  const body = await upstream.arrayBuffer();
-  return new NextResponse(body, {
-    status: upstream.status,
-    headers: stripResponseHeaders(upstream.headers),
+function err(status: number, detail: string) {
+  return new NextResponse(JSON.stringify({ error: detail }), {
+    status,
+    headers: { "content-type": "application/json" },
   });
 }
 
-/** Headers that must be stripped from upstream requests. */
-function stripHopHeaders(h: Headers): Headers {
-  const out = new Headers(h);
-  ["host", "connection", "content-length"].forEach((k) => out.delete(k));
-  return out;
+async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
+  try {
+    const { path } = await ctx.params;
+    const tail = path.join("/");
+    const url = new URL(`${BACKEND}/${tail}`);
+    req.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v));
+
+    // Build headers — strip hop-by-hop fields
+    const headers = new Headers();
+    req.headers.forEach((v, k) => {
+      if (!["host", "connection", "content-length", "transfer-encoding"].includes(k)) {
+        headers.set(k, v);
+      }
+    });
+
+    // Buffer body for non-GET requests
+    let body: ArrayBuffer | undefined;
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      body = await req.arrayBuffer();
+    }
+
+    let upstream: Response;
+    try {
+      upstream = await fetch(url.toString(), {
+        method: req.method,
+        headers,
+        body: body ?? null,
+        redirect: "manual",
+      });
+    } catch (fetchErr) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      console.error(`[proxy] fetch failed → ${url}:`, msg);
+      return err(502, `upstream unreachable: ${msg}`);
+    }
+
+    // Strip response hop-by-hop headers
+    const resHeaders = new Headers();
+    upstream.headers.forEach((v, k) => {
+      if (!["content-encoding", "transfer-encoding", "connection", "keep-alive"].includes(k)) {
+        resHeaders.set(k, v);
+      }
+    });
+
+    const resBody = await upstream.arrayBuffer();
+    return new NextResponse(resBody, { status: upstream.status, headers: resHeaders });
+
+  } catch (topErr) {
+    const msg = topErr instanceof Error ? topErr.message : String(topErr);
+    console.error("[proxy] unhandled error:", msg);
+    return err(500, `proxy error: ${msg}`);
+  }
 }
 
-/** Headers that must be stripped from upstream responses.
- *  Node fetch auto-decompresses, so content-encoding/transfer-encoding
- *  from the upstream would mismatch the already-decoded body. */
-function stripResponseHeaders(h: Headers): Headers {
-  const out = new Headers(h);
-  ["content-encoding", "transfer-encoding", "connection", "keep-alive"].forEach((k) => out.delete(k));
-  return out;
-}
-
-export const GET = forward;
-export const POST = forward;
-export const PUT = forward;
-export const PATCH = forward;
+export const GET    = forward;
+export const POST   = forward;
+export const PUT    = forward;
+export const PATCH  = forward;
 export const DELETE = forward;
