@@ -3,6 +3,17 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 
+export const config = {
+  api: {
+    bodyParser: false,
+    responseLimit: false,
+  },
+};
+
+// Increase body size limit to 50MB for audio/PDF uploads
+export const maxDuration = 60;
+
+
 const BACKEND = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
