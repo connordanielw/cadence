@@ -36,13 +36,23 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   const upstream = await fetch(url, init);
   return new NextResponse(upstream.body, {
     status: upstream.status,
-    headers: upstream.headers,
+    headers: stripResponseHeaders(upstream.headers),
   });
 }
 
+/** Headers that must be stripped from upstream requests. */
 function stripHopHeaders(h: Headers): Headers {
   const out = new Headers(h);
   ["host", "connection", "content-length"].forEach((k) => out.delete(k));
+  return out;
+}
+
+/** Headers that must be stripped from upstream responses.
+ *  Node fetch auto-decompresses, so content-encoding/transfer-encoding
+ *  from the upstream would mismatch the already-decoded body. */
+function stripResponseHeaders(h: Headers): Headers {
+  const out = new Headers(h);
+  ["content-encoding", "transfer-encoding", "connection", "keep-alive"].forEach((k) => out.delete(k));
   return out;
 }
 
