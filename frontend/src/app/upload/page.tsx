@@ -14,12 +14,13 @@ const STEPS = [
 ];
 
 export default function UploadPage() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
   const [pending, setPending] = useState<Piece[]>([]);
   const [busy,    setBusy]    = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
   async function handle(files: File[]) {
+    if (!isLoaded) return;
     setBusy(true); setError(null);
     try {
       const token = await getToken();

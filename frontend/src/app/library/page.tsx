@@ -7,7 +7,7 @@ import PieceCard from "@/components/PieceCard";
 import { deletePiece, listLibrary, type Piece } from "@/lib/api";
 
 export default function LibraryPage() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
   const [pieces,     setPieces]     = useState<Piece[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
@@ -23,14 +23,15 @@ export default function LibraryPage() {
     finally   { setLoading(false); }
   }, [getToken]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (isLoaded) void load(); }, [load, isLoaded]);
 
   useEffect(() => {
+    if (!isLoaded) return;
     const stillWorking = pieces.some((p) => p.status === "pending" || p.status === "processing");
     if (!stillWorking) return;
     const id = setInterval(() => void load(), 3000);
     return () => clearInterval(id);
-  }, [pieces, load]);
+  }, [pieces, load, isLoaded]);
 
   async function onDelete(id: number) {
     setDeletingId(id);

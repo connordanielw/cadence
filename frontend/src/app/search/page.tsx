@@ -15,13 +15,14 @@ const EXAMPLES = [
 ];
 
 export default function SearchPage() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded } = useAuth();
   const [results,     setResults]     = useState<PieceWithScore[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
   async function run(q: string, filters: { mood?: string; key?: string; era?: string }) {
+    if (!isLoaded) return;
     setLoading(true); setError(null); setHasSearched(true);
     try   {
       const token = await getToken();
