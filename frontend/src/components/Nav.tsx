@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserButton } from "@clerk/nextjs";
 
 const links = [
   { href: "/",        label: "Search",  color: "bondi"     },
@@ -25,6 +26,7 @@ export default function Nav() {
             {l.label}
           </Link>
         ))}
+        <UserButton afterSignOutUrl="/sign-in" />
       </div>
     </nav>
   );

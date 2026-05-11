@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user_id
 from app.deps import get_db
 from app.models import Piece
 from app.schemas import PieceWithScore, SearchRequest
@@ -11,7 +12,11 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 
 @router.post("", response_model=list[PieceWithScore])
-def search(req: SearchRequest, db: Session = Depends(get_db)):
+def search(
+    req: SearchRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
     try:
         query_vec = embedding.embed(req.q, input_type="query")
     except Exception as exc:
@@ -20,12 +25,11 @@ def search(req: SearchRequest, db: Session = Depends(get_db)):
     distance = Piece.embedding.cosine_distance(query_vec)
     stmt = (
         select(Piece, distance.label("distance"))
+        .where(Piece.clerk_user_id == user_id)
         .where(Piece.status == "ready")
         .where(Piece.embedding.is_not(None))
     )
 
-    # Tag-level filters cut the candidate pool before vector ranking.
-    # Stored as JSON, so we use ->> / @> via SQLAlchemy's JSON ops.
     if req.mood:
         stmt = stmt.where(Piece.llm_tags["mood"].as_string().ilike(f"%{req.mood}%"))
     if req.key:
@@ -38,6 +42,6 @@ def search(req: SearchRequest, db: Session = Depends(get_db)):
     out: list[PieceWithScore] = []
     for piece, dist in db.execute(stmt):
         item = PieceWithScore.model_validate(piece, from_attributes=True)
-        item.score = float(1.0 - dist)  # cosine similarity from distance
+        item.score = float(1.0 - dist)
         out.append(item)
     return out

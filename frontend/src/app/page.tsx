@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import PieceCard from "@/components/PieceCard";
 import SearchBar from "@/components/SearchBar";
 import { search, type PieceWithScore } from "@/lib/api";
@@ -14,6 +15,7 @@ const EXAMPLES = [
 ];
 
 export default function SearchPage() {
+  const { getToken } = useAuth();
   const [results,     setResults]     = useState<PieceWithScore[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
@@ -21,7 +23,10 @@ export default function SearchPage() {
 
   async function run(q: string, filters: { mood?: string; key?: string; era?: string }) {
     setLoading(true); setError(null); setHasSearched(true);
-    try   { setResults(await search(q, filters)); }
+    try   {
+      const token = await getToken();
+      setResults(await search(q, filters, token));
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally   { setLoading(false); }
   }

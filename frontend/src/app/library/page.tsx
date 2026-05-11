@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import PieceCard from "@/components/PieceCard";
 import { deletePiece, listLibrary, type Piece } from "@/lib/api";
 
 export default function LibraryPage() {
+  const { getToken } = useAuth();
   const [pieces,     setPieces]     = useState<Piece[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
@@ -13,10 +15,13 @@ export default function LibraryPage() {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
-    try   { setPieces(await listLibrary()); }
+    try   {
+      const token = await getToken();
+      setPieces(await listLibrary(token));
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
     finally   { setLoading(false); }
-  }, []);
+  }, [getToken]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -29,7 +34,11 @@ export default function LibraryPage() {
 
   async function onDelete(id: number) {
     setDeletingId(id);
-    try   { await deletePiece(id); setPieces((prev) => prev.filter((p) => p.id !== id)); }
+    try   {
+      const token = await getToken();
+      await deletePiece(id, token);
+      setPieces((prev) => prev.filter((p) => p.id !== id));
+    }
     finally { setDeletingId(null); }
   }
 

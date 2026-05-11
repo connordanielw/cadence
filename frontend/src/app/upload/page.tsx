@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import PieceCard      from "@/components/PieceCard";
 import UploadDropzone from "@/components/UploadDropzone";
 import { getPiece, upload, type Piece } from "@/lib/api";
@@ -13,6 +14,7 @@ const STEPS = [
 ];
 
 export default function UploadPage() {
+  const { getToken } = useAuth();
   const [pending, setPending] = useState<Piece[]>([]);
   const [busy,    setBusy]    = useState(false);
   const [error,   setError]   = useState<string | null>(null);
@@ -20,7 +22,8 @@ export default function UploadPage() {
   async function handle(files: File[]) {
     setBusy(true); setError(null);
     try {
-      const created = await Promise.all(files.map((f) => upload(f)));
+      const token = await getToken();
+      const created = await Promise.all(files.map((f) => upload(f, token)));
       setPending((prev) => [...created, ...prev]);
     }
     catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
@@ -31,11 +34,12 @@ export default function UploadPage() {
   const refreshPending = useCallback(async () => {
     const inFlight = pending.filter((p) => p.status === "pending" || p.status === "processing");
     if (inFlight.length === 0) return;
-    const updated = await Promise.all(inFlight.map((p) => getPiece(p.id).catch(() => p)));
+    const token = await getToken();
+    const updated = await Promise.all(inFlight.map((p) => getPiece(p.id, token).catch(() => p)));
     setPending((prev) =>
       prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
     );
-  }, [pending]);
+  }, [pending, getToken]);
 
   useEffect(() => {
     const inFlight = pending.some((p) => p.status === "pending" || p.status === "processing");

@@ -33,20 +33,33 @@ const UPLOAD_ROOT = process.env.NEXT_PUBLIC_BACKEND_URL
   ? process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, "")
   : ROOT;
 
-export async function listLibrary(): Promise<Piece[]> {
-  const r = await fetch(`${ROOT}/library`, { cache: "no-store" });
+function authHeader(token?: string | null): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function listLibrary(token?: string | null): Promise<Piece[]> {
+  const r = await fetch(`${ROOT}/library`, {
+    cache: "no-store",
+    headers: authHeader(token),
+  });
   if (!r.ok) throw new Error(`Library fetch failed: ${r.status}`);
   return r.json();
 }
 
-export async function getPiece(id: number): Promise<Piece> {
-  const r = await fetch(`${ROOT}/library/${id}`, { cache: "no-store" });
+export async function getPiece(id: number, token?: string | null): Promise<Piece> {
+  const r = await fetch(`${ROOT}/library/${id}`, {
+    cache: "no-store",
+    headers: authHeader(token),
+  });
   if (!r.ok) throw new Error(`Piece fetch failed: ${r.status}`);
   return r.json();
 }
 
-export async function deletePiece(id: number): Promise<void> {
-  const r = await fetch(`${ROOT}/library/${id}`, { method: "DELETE" });
+export async function deletePiece(id: number, token?: string | null): Promise<void> {
+  const r = await fetch(`${ROOT}/library/${id}`, {
+    method: "DELETE",
+    headers: authHeader(token),
+  });
   if (!r.ok && r.status !== 204) throw new Error(`Delete failed: ${r.status}`);
 }
 
@@ -57,20 +70,28 @@ export interface SearchFilters {
   limit?: number;
 }
 
-export async function search(q: string, filters: SearchFilters = {}): Promise<PieceWithScore[]> {
+export async function search(
+  q: string,
+  filters: SearchFilters = {},
+  token?: string | null,
+): Promise<PieceWithScore[]> {
   const r = await fetch(`${ROOT}/search`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
     body: JSON.stringify({ q, limit: filters.limit ?? 20, ...filters }),
   });
   if (!r.ok) throw new Error(`Search failed: ${r.status}`);
   return r.json();
 }
 
-export async function upload(file: File): Promise<Piece> {
+export async function upload(file: File, token?: string | null): Promise<Piece> {
   const fd = new FormData();
   fd.append("file", file);
-  const r = await fetch(`${UPLOAD_ROOT}/upload`, { method: "POST", body: fd });
+  const r = await fetch(`${UPLOAD_ROOT}/upload`, {
+    method: "POST",
+    body: fd,
+    headers: authHeader(token),
+  });
   if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
   return r.json();
 }

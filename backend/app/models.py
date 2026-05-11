@@ -12,6 +12,7 @@ class Piece(Base):
     __tablename__ = "pieces"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clerk_user_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     source_type: Mapped[str] = mapped_column(String(16), nullable=False)  # pdf | audio
     source_path: Mapped[str] = mapped_column(String(1024), nullable=False)

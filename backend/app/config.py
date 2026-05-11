@@ -16,6 +16,10 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000"
 
+    # Clerk publishable key — used to derive the JWKS URL for token verification.
+    # Same value as NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY on the frontend.
+    clerk_publishable_key: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -8,6 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user_id
 from app.core import storage
 from app.db import SessionLocal
 from app.deps import get_db
@@ -26,6 +27,7 @@ async def upload(
     background: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
 ):
     name = (file.filename or "").lower()
     ext = "." + name.rsplit(".", 1)[-1] if "." in name else ""
@@ -39,6 +41,7 @@ async def upload(
 
     stored = storage.save_upload(file.filename or "upload", file.file)
     piece = Piece(
+        clerk_user_id=user_id,
         title=file.filename or "Untitled",
         source_type=source_type,
         source_path=stored,
