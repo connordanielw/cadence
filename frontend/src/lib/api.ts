@@ -27,11 +27,12 @@ export interface PieceWithScore extends Piece {
   score: number;
 }
 
-const ROOT = "/api/proxy";
-// Uploads bypass the Vercel proxy (4.5 MB serverless limit) and go straight to Railway.
-const UPLOAD_ROOT = process.env.NEXT_PUBLIC_BACKEND_URL
+// All requests go directly to Railway — Railway has CORS configured for the Vercel origin.
+// Falls back to local proxy in dev if NEXT_PUBLIC_BACKEND_URL is not set.
+const ROOT = process.env.NEXT_PUBLIC_BACKEND_URL
   ? process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, "")
-  : ROOT;
+  : "/api/proxy";
+const UPLOAD_ROOT = ROOT;
 
 function authHeader(token?: string | null): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
