@@ -34,7 +34,9 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   }
 
   const upstream = await fetch(url, init);
-  return new NextResponse(upstream.body, {
+  // Buffer the body — streaming ReadableStream through NextResponse is unreliable on Vercel.
+  const body = await upstream.arrayBuffer();
+  return new NextResponse(body, {
     status: upstream.status,
     headers: stripResponseHeaders(upstream.headers),
   });
