@@ -10,7 +10,6 @@ interface Props {
 export default function SearchBar({ onSearch, loading }: Props) {
   const [q, setQ] = useState("");
   const [mood, setMood] = useState("");
-  const [musicKey, setMusicKey] = useState("");
   const [era, setEra] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -19,12 +18,11 @@ export default function SearchBar({ onSearch, loading }: Props) {
     if (!q.trim()) return;
     onSearch(q.trim(), {
       mood: mood.trim() || undefined,
-      key: musicKey.trim() || undefined,
       era: era.trim() || undefined,
     });
   }
 
-  const hasFilters = mood || musicKey || era;
+  const hasFilters = mood || era;
 
   return (
     <form className="col" onSubmit={submit} style={{ gap: 10 }}>
@@ -72,11 +70,6 @@ export default function SearchBar({ onSearch, loading }: Props) {
             <label className="filter-label">Mood</label>
             <input className="input" placeholder="e.g. melancholy"
               value={mood} onChange={(e) => setMood(e.target.value)} />
-          </div>
-          <div>
-            <label className="filter-label">Key</label>
-            <input className="input" placeholder="e.g. D minor"
-              value={musicKey} onChange={(e) => setMusicKey(e.target.value)} />
           </div>
           <div>
             <label className="filter-label">Era</label>

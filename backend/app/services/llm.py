@@ -18,13 +18,16 @@ _SYSTEM = """You are a musicologist tagging a music library. Given some context 
 object — no prose, no markdown — with these keys:
 
   mood:            array of 1-4 mood words ("melancholy", "driving", "playful", ...)
-  key:             best-guess key, e.g. "C minor" or null if unclear
+  key:             best-guess key e.g. "C minor" or "E♭ major". For sheet music look for
+                   explicit key markings, title clues, or signature accidentals. For audio
+                   use the estimated_key + estimated_mode fields. Return null if genuinely unclear.
   tempo_feel:      one of "still", "lethargic", "moderate", "brisk", "driving", "frantic", or null
-  era:             rough era — "Baroque", "Classical", "Romantic", "20th c.", "contemporary", or null
+  era:             rough era — "Baroque", "Classical", "Romantic", "Impressionist",
+                   "20th century", "Contemporary", "Jazz", or null
   instrumentation: array of detected instruments / textures
   summary:         one-sentence plain-English summary of what this piece sounds or looks like
 
-Be cautious — if you don't know a field, return null. Never invent specific composers or titles."""
+Be conservative on key — null is better than a wrong answer. Never invent composers or titles."""
 
 _DESC_SYSTEM = """Write a single paragraph (2-3 sentences) describing this piece's overall sound
 and feel, suitable as the basis for semantic search. Plain prose. No headers, no bullets."""
