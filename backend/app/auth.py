@@ -56,5 +56,5 @@ async def get_current_user_id(authorization: str | None = Header(None)) -> str:
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except Exception as exc:
-        logger.warning("JWT verification failed: %s", exc)
-        raise HTTPException(status_code=401, detail="Invalid token")
+        logger.warning("JWT verification failed (%s): %s", type(exc).__name__, exc, exc_info=True)
+        raise HTTPException(status_code=401, detail=f"Invalid token: {type(exc).__name__}: {exc}")

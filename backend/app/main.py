@@ -25,6 +25,24 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/health/verify")
+async def health_verify(request: Request) -> dict:
+    """Debug — tries to verify the Bearer token and returns the result."""
+    from app.auth import _derive_jwks_url, _get_jwks_client
+    import jwt as pyjwt
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        return {"error": "No Bearer token in Authorization header"}
+    token = auth.split(" ", 1)[1]
+    try:
+        client = _get_jwks_client()
+        signing_key = client.get_signing_key_from_jwt(token)
+        payload = pyjwt.decode(token, signing_key.key, algorithms=["RS256"], options={"verify_aud": False})
+        return {"ok": True, "sub": payload.get("sub"), "iss": payload.get("iss")}
+    except Exception as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
 @app.get("/health/headers")
 async def health_headers(request: Request) -> dict:
     """Debug — shows which headers arrived (auth token partially redacted)."""
