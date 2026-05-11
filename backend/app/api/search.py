@@ -39,15 +39,20 @@ def search(
 
     stmt = stmt.order_by(distance).limit(req.limit)
 
+    MIN_SCORE = 0.55  # discard results with cosine similarity below this
+
     seen: set[int] = set()
     out: list[PieceWithScore] = []
     for piece, dist in db.execute(stmt):
+        score = float(1.0 - dist)
+        if score < MIN_SCORE:
+            continue
         if piece.id in seen:
             continue
         seen.add(piece.id)
         item = PieceWithScore(
             **PieceOut.model_validate(piece, from_attributes=True).model_dump(),
-            score=float(1.0 - dist),
+            score=score,
         )
         out.append(item)
     return out
