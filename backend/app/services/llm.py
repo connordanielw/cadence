@@ -13,28 +13,49 @@ import anthropic
 
 from app.config import settings
 
-_SYSTEM = """You are a musicologist tagging a music library. Given some context about a piece
-(either OCR'd sheet music text or a feature vector from audio analysis), return a single JSON
-object — no prose, no markdown — with these keys:
+_SYSTEM = """You are an expert music analyst tagging pieces for a semantic search library.
 
-  mood:            array of 1-4 mood words ("melancholy", "driving", "playful", ...)
-  key:             best-guess key e.g. "C minor" or "E♭ major". For sheet music look for
-                   explicit key markings, title clues, or signature accidentals. For audio
-                   use the estimated_key + estimated_mode fields. Return null if genuinely unclear.
-  tempo_feel:      one of "still", "lethargic", "moderate", "brisk", "driving", "frantic", or null
-  bpm:             numeric BPM as an integer, or null. For audio use tempo_bpm rounded to nearest
-                   integer. For sheet music look for metronome marks like "♩= 120" or "q = 96",
-                   or convert Italian tempo words (Largo≈50, Adagio≈66, Andante≈80, Moderato≈100,
-                   Allegro≈130, Presto≈180). Return null if no indication exists.
-  era:             rough era — "Baroque", "Classical", "Romantic", "Impressionist",
-                   "20th century", "Contemporary", "Jazz", or null
-  instrumentation: array of detected instruments / textures
-  summary:         one-sentence plain-English summary of what this piece sounds or looks like
+For AUDIO features you receive a JSON object with:
+  - tempo_bpm, estimated_key, estimated_mode — use these directly
+  - mfcc_mean — timbral fingerprint. High MFCC[1] = bright/thin; low = warm/full.
+    MFCC[0] is loudness. Higher-order MFCCs capture texture.
+  - spectral_contrast_mean — 7 frequency bands. High values in bands 4-6 suggest
+    bright/percussive timbres (strings, brass, cymbals, piano attacks).
+    Low, uniform contrast = smooth pads, choir, sustained textures.
+  - dynamic_range — difference between loudest and quietest moments. High = dramatic.
+  - onset_strength_mean — rhythmic attack density. High = percussive/rhythmic,
+    low = legato/sustained.
+  - segment_start / segment_middle / segment_end — per-section snapshots of energy
+    and onset strength. USE THESE to detect structural changes: e.g. if segment_end
+    has much higher onset_strength_peak than the middle, there are likely drums or
+    strong percussive events at the end. If rms_energy rises dramatically in the
+    middle, there is a climax or build.
 
-Be conservative on key — null is better than a wrong answer. Never invent composers or titles."""
+For SHEET MUSIC you receive OCR'd text. Look for tempo markings, dynamics, clefs,
+key signatures, and instrument labels.
 
-_DESC_SYSTEM = """Write a single paragraph (2-3 sentences) describing this piece's overall sound
-and feel, suitable as the basis for semantic search. Plain prose. No headers, no bullets."""
+Return ONLY a single JSON object — no prose, no markdown fences:
+
+  mood:            2-4 mood descriptors. Be specific and honest — if the piece
+                   builds from dark to triumphant, use both.
+  key:             e.g. "D minor" or null if unclear
+  tempo_feel:      "still" | "lethargic" | "moderate" | "brisk" | "driving" | "frantic" | null
+  bpm:             integer from tempo_bpm (audio) or metronome mark (sheet music), or null
+  era:             "Baroque" | "Classical" | "Romantic" | "Impressionist" |
+                   "20th century" | "Contemporary" | "Film/Game" | "Jazz" | null
+  instrumentation: array of specific instruments/textures you can infer. For audio,
+                   use spectral_contrast and mfcc to infer (e.g. high upper-band
+                   contrast + high onset = strings/percussion; smooth low contrast =
+                   pads/choir). Be as specific as features allow.
+  summary:         one sentence capturing the piece's arc — mention if it builds,
+                   transitions, or ends differently than it begins.
+
+Never invent composer names or titles. Null beats a wrong answer."""
+
+_DESC_SYSTEM = """Write a single paragraph (2-3 sentences) describing this piece's sound, feel,
+and arc for semantic search. Be specific: mention instruments, textures, mood shifts, and how
+the piece moves from beginning to end if it changes. Plain prose — no headers, no bullets,
+no hedging phrases like "seems to" or "appears to". Write as if you heard it."""
 
 
 _client: anthropic.Anthropic | None = None
