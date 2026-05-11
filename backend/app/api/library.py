@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user_id
 from app.deps import get_db
 from app.models import Piece
-from app.schemas import PieceOut
+from app.schemas import PiecePatch, PieceOut
 
 router = APIRouter(prefix="/library", tags=["library"])
 
@@ -36,6 +36,25 @@ def get_piece(
     piece = db.get(Piece, piece_id)
     if piece is None or piece.clerk_user_id != user_id:
         raise HTTPException(404, "Piece not found")
+    return piece
+
+
+@router.patch("/{piece_id}", response_model=PieceOut)
+def patch_piece(
+    piece_id: int,
+    body: PiecePatch,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    piece = db.get(Piece, piece_id)
+    if piece is None or piece.clerk_user_id != user_id:
+        raise HTTPException(404, "Piece not found")
+    if body.description is not None:
+        piece.description = body.description
+    if body.llm_tags is not None:
+        piece.llm_tags = body.llm_tags.model_dump()
+    db.commit()
+    db.refresh(piece)
     return piece
 
 

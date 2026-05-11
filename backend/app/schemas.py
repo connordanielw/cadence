@@ -31,6 +31,11 @@ class PieceWithScore(PieceOut):
     score: float
 
 
+class PiecePatch(BaseModel):
+    description: str | None = None
+    llm_tags: PieceTags | None = None
+
+
 class SearchRequest(BaseModel):
     q: str
     limit: int = 20

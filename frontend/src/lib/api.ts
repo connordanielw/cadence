@@ -56,6 +56,21 @@ export async function getPiece(id: number, token?: string | null): Promise<Piece
   return r.json();
 }
 
+export interface PiecePatch {
+  description?: string;
+  llm_tags?: Partial<PieceTags>;
+}
+
+export async function patchPiece(id: number, patch: PiecePatch, token?: string | null): Promise<Piece> {
+  const r = await fetch(`${ROOT}/library/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeader(token) },
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) throw new Error(`Patch failed: ${r.status}`);
+  return r.json();
+}
+
 export async function deletePiece(id: number, token?: string | null): Promise<void> {
   const r = await fetch(`${ROOT}/library/${id}`, {
     method: "DELETE",

@@ -77,7 +77,13 @@ export default function SearchPage() {
 
       {results.length > 0 && (
         <div className="results">
-          {results.map((p) => <PieceCard key={p.id} piece={p} />)}
+          {results.map((p) => (
+        <PieceCard
+          key={p.id}
+          piece={p}
+          onUpdate={(updated) => setResults(prev => prev.map(x => x.id === updated.id ? { ...updated, score: x.score } : x))}
+        />
+      ))}
         </div>
       )}
     </div>

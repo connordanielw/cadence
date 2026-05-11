@@ -120,6 +120,7 @@ export default function LibraryPage() {
               key={p.id}
               piece={p}
               onDelete={deletingId === p.id ? undefined : () => onDelete(p.id)}
+              onUpdate={(updated) => setPieces(prev => prev.map(x => x.id === updated.id ? updated : x))}
             />
           ))}
         </div>
