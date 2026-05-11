@@ -72,6 +72,13 @@ export async function patchPiece(id: number, patch: PiecePatch, token?: string |
   return r.json();
 }
 
+export async function getFileBlobUrl(id: number, token?: string | null): Promise<string> {
+  const r = await fetch(`${ROOT}/library/${id}/file`, { headers: authHeader(token) });
+  if (!r.ok) throw new Error(`File fetch failed: ${r.status}`);
+  const blob = await r.blob();
+  return URL.createObjectURL(blob);
+}
+
 export async function deletePiece(id: number, token?: string | null): Promise<void> {
   const r = await fetch(`${ROOT}/library/${id}`, {
     method: "DELETE",

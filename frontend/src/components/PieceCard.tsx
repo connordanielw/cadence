@@ -3,7 +3,7 @@
 import { useState, useRef, KeyboardEvent } from "react";
 import { useAuth } from "@clerk/nextjs";
 import type { Piece, PieceTags, PieceWithScore } from "@/lib/api";
-import { patchPiece } from "@/lib/api";
+import { patchPiece, getFileBlobUrl } from "@/lib/api";
 
 interface Props {
   piece: Piece | PieceWithScore;
@@ -30,9 +30,12 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
   const score   = "score" in piece ? piece.score : undefined;
   const tags    = piece.llm_tags ?? {};
 
-  const [expanded, setExpanded]   = useState(false);
-  const [editing,  setEditing]    = useState(false);
-  const [saving,   setSaving]     = useState(false);
+  const [expanded,  setExpanded]  = useState(false);
+  const [editing,   setEditing]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [blobUrl,   setBlobUrl]   = useState<string | null>(null);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [showPlayer,  setShowPlayer] = useState(false);
 
   // Editable copies
   const [editDesc, setEditDesc]   = useState(piece.description ?? "");
@@ -53,6 +56,24 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
     editBpm ? `${editBpm} bpm` : null,
   ].filter(Boolean).join(" · ");
   const pills = [...editMood, ...editInst].slice(0, editing ? 999 : 4);
+
+  async function openFile() {
+    if (loadingFile) return;
+    setLoadingFile(true);
+    try {
+      const token = await getToken();
+      const url = await getFileBlobUrl(piece.id, token);
+      if (piece.source_type === "audio") {
+        setBlobUrl(url);
+        setShowPlayer(true);
+      } else {
+        // PDF — open in new tab
+        window.open(url, "_blank");
+      }
+    } finally {
+      setLoadingFile(false);
+    }
+  }
 
   function startEdit() {
     setEditDesc(piece.description ?? "");
@@ -114,6 +135,11 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
         <div className="pc-head-right">
           {score !== undefined && <ScorePill score={score} />}
           {piece.status === "ready" && !editing && (
+            <button className="pc-file-btn" onClick={openFile} disabled={loadingFile} title={piece.source_type === "audio" ? "Play" : "View PDF"}>
+              {loadingFile ? "…" : piece.source_type === "audio" ? "▶" : "⎙"}
+            </button>
+          )}
+          {piece.status === "ready" && !editing && (
             <button className="pc-edit-btn" onClick={startEdit} title="Edit tags">✎</button>
           )}
           {onDelete && !editing && (
@@ -132,6 +158,14 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
         </span>
         {!editing && inlineTags && <><span className="pc-meta__sep">·</span><span className="pc-meta__tags">{inlineTags}</span></>}
       </div>
+
+      {/* ── Audio player ── */}
+      {showPlayer && blobUrl && (
+        <div className="pc-player">
+          <audio controls autoPlay src={blobUrl} style={{ width: "100%" }} />
+          <button className="pc-expand-btn" onClick={() => setShowPlayer(false)}>Hide player</button>
+        </div>
+      )}
 
       {/* ── Inline field editors (key / era / tempo) ── */}
       {editing && (

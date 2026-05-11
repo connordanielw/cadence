@@ -1,8 +1,13 @@
+import mimetypes
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
+from app.core import storage
 from app.deps import get_db
 from app.models import Piece
 from app.schemas import PiecePatch, PieceOut
@@ -56,6 +61,28 @@ def patch_piece(
     db.commit()
     db.refresh(piece)
     return piece
+
+
+@router.get("/{piece_id}/file")
+def get_piece_file(
+    piece_id: int,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    piece = db.get(Piece, piece_id)
+    if piece is None or piece.clerk_user_id != user_id:
+        raise HTTPException(404, "Piece not found")
+    if not piece.source_path:
+        raise HTTPException(404, "File not available")
+    path = storage.absolute_path(piece.source_path)
+    if not path.exists():
+        raise HTTPException(404, "File not found on disk")
+    mime, _ = mimetypes.guess_type(str(path))
+    return FileResponse(
+        path=str(path),
+        media_type=mime or "application/octet-stream",
+        filename=piece.title,
+    )
 
 
 @router.delete("/{piece_id}", status_code=204)

@@ -268,16 +268,25 @@ h3 { font-size: 13px; font-weight: 500; color: var(--ink-mid); }
 .pc-head-right {
   display: flex; align-items: center; gap: 6px; flex-shrink: 0;
 }
-.pc-delete, .pc-edit-btn {
+.pc-delete, .pc-edit-btn, .pc-file-btn {
   background: none; border: none; cursor: pointer;
   font-size: 12px; color: var(--ink-dim); opacity: 0;
   transition: opacity 130ms, color 130ms;
   line-height: 1; padding: 2px 5px;
 }
 .card:hover .pc-delete,
-.card:hover .pc-edit-btn { opacity: 1; }
-.pc-delete:hover  { color: #ff5f57; }
+.card:hover .pc-edit-btn,
+.card:hover .pc-file-btn { opacity: 1; }
+.pc-delete:hover   { color: #ff5f57; }
 .pc-edit-btn:hover { color: rgb(var(--c-accent)); opacity: 1; }
+.pc-file-btn       { font-size: 14px; }
+.pc-file-btn:hover { color: rgb(var(--c-bondi)); opacity: 1; }
+.pc-file-btn:disabled { cursor: wait; }
+
+.pc-player {
+  margin: 8px 0 4px;
+  display: flex; flex-direction: column; gap: 4px;
+}
 
 /* Expand toggle */
 .pc-desc--expanded { -webkit-line-clamp: unset; }
