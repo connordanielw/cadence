@@ -27,7 +27,8 @@ export default function Nav() {
           </Link>
         ))}
         <SignedOut>
-          <Link href="/sign-in" className="btn" style={{ padding: "5px 14px", fontSize: 13 }}>Sign in</Link>
+          <Link href="/sign-in" className="btn btn--ghost" style={{ padding: "5px 14px", fontSize: 13 }}>Log in</Link>
+          <Link href="/sign-up" className="btn" style={{ padding: "5px 14px", fontSize: 13 }}>Sign up</Link>
         </SignedOut>
         <SignedIn>
           <UserButton />
