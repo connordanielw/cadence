@@ -41,11 +41,17 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
   const [editKey,  setEditKey]    = useState(tags.key ?? "");
   const [editEra,  setEditEra]    = useState(tags.era ?? "");
   const [editTempo,setEditTempo]  = useState(tags.tempo_feel ?? "");
+  const [editBpm,  setEditBpm]    = useState(tags.bpm?.toString() ?? "");
   const [newTag,   setNewTag]     = useState("");
   const [tagTarget,setTagTarget]  = useState<"mood"|"instrumentation">("mood");
   const newTagRef = useRef<HTMLInputElement>(null);
 
-  const inlineTags = [editKey, editEra, editTempo].filter(Boolean).join(" · ");
+  const inlineTags = [
+    editKey,
+    editEra,
+    editTempo,
+    editBpm ? `${editBpm} bpm` : null,
+  ].filter(Boolean).join(" · ");
   const pills = [...editMood, ...editInst].slice(0, editing ? 999 : 4);
 
   function startEdit() {
@@ -55,6 +61,7 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
     setEditKey(tags.key ?? "");
     setEditEra(tags.era ?? "");
     setEditTempo(tags.tempo_feel ?? "");
+    setEditBpm(tags.bpm?.toString() ?? "");
     setEditing(true);
     setExpanded(true);
   }
@@ -75,6 +82,7 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
           key: editKey || null,
           era: editEra || null,
           tempo_feel: editTempo || null,
+          bpm: editBpm ? parseInt(editBpm, 10) : null,
           summary: tags.summary,
         } as PieceTags,
       }, token);
@@ -131,6 +139,7 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
           <input className="pc-field-input" placeholder="Key (e.g. C minor)" value={editKey}   onChange={e => setEditKey(e.target.value)} />
           <input className="pc-field-input" placeholder="Era"                value={editEra}   onChange={e => setEditEra(e.target.value)} />
           <input className="pc-field-input" placeholder="Tempo feel"         value={editTempo} onChange={e => setEditTempo(e.target.value)} />
+          <input className="pc-field-input" placeholder="BPM"  type="number" value={editBpm}   onChange={e => setEditBpm(e.target.value)} style={{ maxWidth: 80 }} />
         </div>
       )}
 

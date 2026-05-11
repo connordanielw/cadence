@@ -8,6 +8,7 @@ class PieceTags(BaseModel):
     mood: list[str] = []
     key: str | None = None  # e.g. "C minor"
     tempo_feel: str | None = None  # "lethargic" | "driving" | etc
+    bpm: int | None = None
     era: str | None = None
     instrumentation: list[str] = []
     summary: str | None = None

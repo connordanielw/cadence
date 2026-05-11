@@ -22,6 +22,10 @@ object — no prose, no markdown — with these keys:
                    explicit key markings, title clues, or signature accidentals. For audio
                    use the estimated_key + estimated_mode fields. Return null if genuinely unclear.
   tempo_feel:      one of "still", "lethargic", "moderate", "brisk", "driving", "frantic", or null
+  bpm:             numeric BPM as an integer, or null. For audio use tempo_bpm rounded to nearest
+                   integer. For sheet music look for metronome marks like "♩= 120" or "q = 96",
+                   or convert Italian tempo words (Largo≈50, Adagio≈66, Andante≈80, Moderato≈100,
+                   Allegro≈130, Presto≈180). Return null if no indication exists.
   era:             rough era — "Baroque", "Classical", "Romantic", "Impressionist",
                    "20th century", "Contemporary", "Jazz", or null
   instrumentation: array of detected instruments / textures
