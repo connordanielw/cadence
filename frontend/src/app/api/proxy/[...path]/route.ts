@@ -33,7 +33,17 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
     init.duplex = "half";
   }
 
-  const upstream = await fetch(url, init);
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, init);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[proxy] fetch failed → ${url}:`, msg);
+    return new NextResponse(JSON.stringify({ error: "proxy_fetch_failed", detail: msg }), {
+      status: 502,
+      headers: { "content-type": "application/json" },
+    });
+  }
   // Buffer the body — streaming ReadableStream through NextResponse is unreliable on Vercel.
   const body = await upstream.arrayBuffer();
   return new NextResponse(body, {
