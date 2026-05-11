@@ -6,6 +6,7 @@ For an MVP we process inline. In production this would push to a queue
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
@@ -38,6 +39,16 @@ async def upload(
         source_type = "audio"
     else:
         raise HTTPException(415, f"Unsupported file type: {ext or 'unknown'}")
+
+    # Reject if this user already has a piece with the same filename
+    existing = db.scalars(
+        select(Piece).where(
+            Piece.clerk_user_id == user_id,
+            Piece.title == (file.filename or "Untitled"),
+        )
+    ).first()
+    if existing:
+        raise HTTPException(409, f"A piece named '{file.filename}' already exists in your library.")
 
     stored = storage.save_upload(file.filename or "upload", file.file)
     piece = Piece(

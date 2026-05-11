@@ -39,8 +39,12 @@ def search(
 
     stmt = stmt.order_by(distance).limit(req.limit)
 
+    seen: set[int] = set()
     out: list[PieceWithScore] = []
     for piece, dist in db.execute(stmt):
+        if piece.id in seen:
+            continue
+        seen.add(piece.id)
         item = PieceWithScore(
             **PieceOut.model_validate(piece, from_attributes=True).model_dump(),
             score=float(1.0 - dist),
