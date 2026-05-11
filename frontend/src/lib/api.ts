@@ -28,6 +28,10 @@ export interface PieceWithScore extends Piece {
 }
 
 const ROOT = "/api/proxy";
+// Uploads bypass the Vercel proxy (4.5 MB serverless limit) and go straight to Railway.
+const UPLOAD_ROOT = process.env.NEXT_PUBLIC_BACKEND_URL
+  ? `${process.env.NEXT_PUBLIC_BACKEND_URL}`
+  : ROOT;
 
 export async function listLibrary(): Promise<Piece[]> {
   const r = await fetch(`${ROOT}/library`, { cache: "no-store" });
@@ -66,7 +70,7 @@ export async function search(q: string, filters: SearchFilters = {}): Promise<Pi
 export async function upload(file: File): Promise<Piece> {
   const fd = new FormData();
   fd.append("file", file);
-  const r = await fetch(`${ROOT}/upload`, { method: "POST", body: fd });
+  const r = await fetch(`${UPLOAD_ROOT}/upload`, { method: "POST", body: fd });
   if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
   return r.json();
 }
