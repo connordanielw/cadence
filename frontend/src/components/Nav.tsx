@@ -1,0 +1,31 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const links = [
+  { href: "/",        label: "Search",  color: "bondi"     },
+  { href: "/upload",  label: "Upload",  color: "tangerine" },
+  { href: "/library", label: "Library", color: "grape"     },
+];
+
+export default function Nav() {
+  const pathname = usePathname();
+  return (
+    <nav className="nav">
+      <Link href="/" className="nav__brand">cadence</Link>
+      <div className="nav__links">
+        {links.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className={`nav__link nav__link--${l.color}`}
+            aria-current={pathname === l.href ? "page" : undefined}
+          >
+            {l.label}
+          </Link>
+        ))}
+      </div>
+    </nav>
+  );
+}
