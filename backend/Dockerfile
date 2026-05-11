@@ -11,11 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+# Build context is the repo root (Railway default)
+COPY backend/pyproject.toml ./
 RUN pip install --no-cache-dir -e ".[dev]"
 
-COPY . .
+COPY backend/ .
 
 EXPOSE 8000
 
-CMD sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
