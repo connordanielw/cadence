@@ -11,6 +11,7 @@ from app.core import storage
 from app.deps import get_db
 from app.models import Piece
 from app.schemas import PiecePatch, PieceOut
+from app.services.demo_seed import ensure_demo_for_new_user
 
 router = APIRouter(prefix="/library", tags=["library"])
 
@@ -22,6 +23,7 @@ def list_pieces(
     limit: int = 100,
     offset: int = 0,
 ):
+    ensure_demo_for_new_user(user_id, db)
     stmt = (
         select(Piece)
         .where(Piece.clerk_user_id == user_id)
