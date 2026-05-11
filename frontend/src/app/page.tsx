@@ -1,4 +1,6 @@
 import Link from "next/link";
+import HeroCta from "@/components/HeroCta";
+import LpBottomCta from "@/components/LpBottomCta";
 
 const FEATURES = [
   {
@@ -38,10 +40,7 @@ export default function HomePage() {
           Upload sheet music and audio. Cadence tags everything with AI
           and lets you search by feel, key, mood, or era — not by filename.
         </p>
-        <div className="hero__cta">
-          <Link href="/sign-up" className="hero__btn-primary">Get started free</Link>
-          <Link href="/sign-in" className="hero__btn-ghost">Log in →</Link>
-        </div>
+        <HeroCta />
       </section>
 
       {/* ── Features ────────────────────────────────────────────── */}
@@ -68,9 +67,7 @@ export default function HomePage() {
             <li><strong>Claude analyses it.</strong> Mood, key, era, instrumentation — all extracted.</li>
             <li><strong>Search naturally.</strong> "Melancholy Romantic piano" returns exactly that.</li>
           </ol>
-          <Link href="/sign-up" className="hero__btn-primary" style={{ display: "inline-flex", marginTop: 8 }}>
-            Try it free
-          </Link>
+          <HeroCta marginTop={8} />
         </div>
         <div className="lp-how__demo">
           <div className="demo-card">
@@ -111,12 +108,7 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA ─────────────────────────────────────────────────── */}
-      <section className="lp-cta">
-        <div className="lp-cta__glow" />
-        <h2 className="lp-cta__title">Your library is waiting.</h2>
-        <p className="lp-cta__sub">Free to start. No credit card required.</p>
-        <Link href="/sign-up" className="hero__btn-primary lp-cta__btn">Create your library →</Link>
-      </section>
+      <LpBottomCta />
 
     </div>
   );
