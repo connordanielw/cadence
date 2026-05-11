@@ -21,9 +21,9 @@ def _derive_jwks_url(publishable_key: str) -> str:
     Format: pk_test_<base64url_frontend_api>$ or pk_live_<base64url_frontend_api>$
     The base64url segment decodes to the Clerk Frontend API hostname.
     """
-    b64 = publishable_key.split("_", 2)[2].rstrip("$")
+    b64 = publishable_key.split("_", 2)[2]
     padded = b64 + "=" * (-len(b64) % 4)
-    frontend_api = base64.urlsafe_b64decode(padded).decode()
+    frontend_api = base64.urlsafe_b64decode(padded).decode().rstrip("$")
     return f"https://{frontend_api}/.well-known/jwks.json"
 
 
