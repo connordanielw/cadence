@@ -19,7 +19,8 @@ _PITCH_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 def extract_features(audio_path: Path) -> dict:
     y, sr = librosa.load(str(audio_path), mono=True, duration=120.0)  # cap at 2 min
 
-    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    tempo_raw, _ = librosa.beat.beat_track(y=y, sr=sr)
+    tempo = float(np.asarray(tempo_raw).flat[0])
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
     centroid = float(librosa.feature.spectral_centroid(y=y, sr=sr).mean())
     rms = float(librosa.feature.rms(y=y).mean())
@@ -29,7 +30,7 @@ def extract_features(audio_path: Path) -> dict:
     key, mode = _estimate_key(chroma)
 
     return {
-        "tempo_bpm": float(tempo),
+        "tempo_bpm": tempo,
         "estimated_key": key,
         "estimated_mode": mode,
         "spectral_centroid_hz": centroid,
