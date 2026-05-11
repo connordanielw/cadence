@@ -1,6 +1,6 @@
 import base64
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import library, search, upload
@@ -23,6 +23,17 @@ app.include_router(search.router)
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/health/headers")
+async def health_headers(request: Request) -> dict:
+    """Debug — shows which headers arrived (auth token partially redacted)."""
+    auth = request.headers.get("authorization", "")
+    return {
+        "authorization_present": bool(auth),
+        "authorization_preview": auth[:30] + "…" if len(auth) > 30 else auth,
+        "origin": request.headers.get("origin", ""),
+    }
 
 
 @app.get("/health/clerk")
