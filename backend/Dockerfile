@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Build context is the repo root (Railway default)
 COPY backend/pyproject.toml ./
-RUN pip install --no-cache-dir ".[dev]" && pip install --no-cache-dir "cryptography>=42"
+RUN pip install --no-cache-dir -e ".[dev]" && pip install --no-cache-dir "cryptography>=42"
 
 COPY backend/ .
 
