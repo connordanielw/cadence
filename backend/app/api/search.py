@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user_id
 from app.deps import get_db
 from app.models import Piece
-from app.schemas import PieceWithScore, SearchRequest
+from app.schemas import PieceOut, PieceWithScore, SearchRequest
 from app.services import embedding
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -41,7 +41,9 @@ def search(
 
     out: list[PieceWithScore] = []
     for piece, dist in db.execute(stmt):
-        item = PieceWithScore.model_validate(piece, from_attributes=True)
-        item.score = float(1.0 - dist)
+        item = PieceWithScore(
+            **PieceOut.model_validate(piece, from_attributes=True).model_dump(),
+            score=float(1.0 - dist),
+        )
         out.append(item)
     return out
