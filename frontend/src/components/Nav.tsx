@@ -26,7 +26,7 @@ export default function Nav() {
             {l.label}
           </Link>
         ))}
-        <UserButton afterSignOutUrl="/sign-in" />
+        <UserButton />
       </div>
     </nav>
   );
