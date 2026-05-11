@@ -30,7 +30,7 @@ export interface PieceWithScore extends Piece {
 const ROOT = "/api/proxy";
 // Uploads bypass the Vercel proxy (4.5 MB serverless limit) and go straight to Railway.
 const UPLOAD_ROOT = process.env.NEXT_PUBLIC_BACKEND_URL
-  ? `${process.env.NEXT_PUBLIC_BACKEND_URL}`
+  ? process.env.NEXT_PUBLIC_BACKEND_URL.replace(/\/+$/, "")
   : ROOT;
 
 export async function listLibrary(): Promise<Piece[]> {
