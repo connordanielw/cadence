@@ -33,9 +33,10 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
   const [expanded,  setExpanded]  = useState(false);
   const [editing,   setEditing]   = useState(false);
   const [saving,    setSaving]    = useState(false);
-  const [blobUrl,   setBlobUrl]   = useState<string | null>(null);
+  const [blobUrl,    setBlobUrl]   = useState<string | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [showPlayer,  setShowPlayer] = useState(false);
+  const [fileError,   setFileError]  = useState<string | null>(null);
 
   // Editable copies
   const [editDesc, setEditDesc]   = useState(piece.description ?? "");
@@ -60,6 +61,7 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
   async function openFile() {
     if (loadingFile) return;
     setLoadingFile(true);
+    setFileError(null);
     try {
       const token = await getToken();
       const url = await getFileBlobUrl(piece.id, token);
@@ -67,9 +69,10 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
         setBlobUrl(url);
         setShowPlayer(true);
       } else {
-        // PDF — open in new tab
         window.open(url, "_blank");
       }
+    } catch (e) {
+      setFileError(e instanceof Error ? e.message : "Failed to load file");
     } finally {
       setLoadingFile(false);
     }
@@ -160,6 +163,7 @@ export default function PieceCard({ piece, onDelete, onUpdate }: Props) {
       </div>
 
       {/* ── Audio player ── */}
+      {fileError && <p style={{ fontSize: 12, color: "#ff5f57", margin: "6px 0 0" }}>{fileError}</p>}
       {showPlayer && blobUrl && (
         <div className="pc-player">
           <audio controls autoPlay src={blobUrl} style={{ width: "100%" }} />
