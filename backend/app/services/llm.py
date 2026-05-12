@@ -32,8 +32,8 @@ A) AUDIO — a mel-spectrogram image (3 panels) PLUS a JSON feature vector.
      High bands (3k-8k Hz) = flute overtones, cymbal shimmer, high string harmonics.
      Dense harmonic stacks (multiple parallel bands) = strings ensemble or piano.
      Isolated bright blobs with fast decay = piano key strikes.
-   - Panel 2 (Chroma): pitch class energy over time.
-     Concentrated rows = clear tonal centre. Diffuse = atonal or noisy.
+   - Panel 2 (Chroma): pitch class energy over time. Use this to understand
+     harmonic character and texture — NOT to guess key (always return null for key on audio).
    - Panel 3 (Onset Strength): rhythmic attack density.
      Tall spikes = hard percussion / piano attacks. Low flat line = sustained, legato.
 
@@ -53,7 +53,9 @@ Return ONLY a single JSON object — no prose, no markdown fences:
 
   mood:            2-4 mood descriptors. Be specific and honest — if the piece
                    builds from dark to triumphant, use both.
-  key:             e.g. "D minor" or null if unclear
+  key:             Always null for audio input — key detection from audio is
+                   unreliable and will be set manually by the user. For sheet
+                   music only: e.g. "D minor".
   tempo_feel:      "still" | "lethargic" | "moderate" | "brisk" | "driving" | "frantic" | null
   bpm:             integer from tempo_bpm (audio) or metronome mark (sheet music), or null
   era:             "Baroque" | "Classical" | "Romantic" | "Impressionist" |

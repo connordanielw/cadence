@@ -22,20 +22,6 @@ import numpy as np
 
 matplotlib.use("Agg")  # non-interactive backend — no display needed
 
-# Krumhansl-Schmuckler key profiles
-_MAJ = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
-_MIN = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
-_PITCH_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-
-
-def _estimate_key(chroma: np.ndarray) -> tuple[str, str]:
-    scores: list[tuple[float, str, str]] = []
-    for i in range(12):
-        scores.append((float(np.corrcoef(chroma, np.roll(_MAJ, i))[0, 1]), _PITCH_NAMES[i], "major"))
-        scores.append((float(np.corrcoef(chroma, np.roll(_MIN, i))[0, 1]), _PITCH_NAMES[i], "minor"))
-    scores.sort(reverse=True)
-    return scores[0][1], scores[0][2]
-
 
 def _segment_features(y: np.ndarray, sr: int) -> dict:
     """Return energy + brightness + onset_mean for this audio segment."""
@@ -116,12 +102,13 @@ def extract_features(audio_path: Path) -> dict:
 
     duration = float(librosa.get_duration(y=y, sr=sr))
 
-    # ── Global tempo & key ────────────────────────────────────────────
+    # ── Global tempo ──────────────────────────────────────────────────
     tempo_raw, _ = librosa.beat.beat_track(y=y, sr=sr)
     tempo = float(np.asarray(tempo_raw).flat[0])
 
+    # Key detection intentionally omitted — Krumhansl-Schmuckler is
+    # unreliable on real recordings. Users set key manually via the edit UI.
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
-    key, mode = _estimate_key(chroma)
 
     # ── Timbre: MFCCs ─────────────────────────────────────────────────
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
@@ -155,8 +142,6 @@ def extract_features(audio_path: Path) -> dict:
         # Basics
         "duration_sec": round(duration, 1),
         "tempo_bpm": round(tempo, 1),
-        "estimated_key": key,
-        "estimated_mode": mode,
 
         # Global energy & colour
         "rms_energy_mean": rms_mean,
