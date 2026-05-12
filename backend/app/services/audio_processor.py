@@ -1,4 +1,4 @@
-"""Extract a rich audio feature vector with librosa.
+"""Extract a rich audio feature vector with librosa and render a mel-spectrogram image.
 
 Features are grouped into:
   - Global: tempo, key, duration, energy, brightness
@@ -6,13 +6,21 @@ Features are grouped into:
   - Dynamics: onset strength, dynamic range across the piece
   - Segments: beginning / middle / end snapshots so Claude can detect transitions
     (e.g. quiet intro → lush climax → cinematic drum outro)
+  - Spectrogram: a base64-encoded mel-spectrogram PNG sent directly to Claude vision
 """
 from __future__ import annotations
 
+import base64
+import io
 from pathlib import Path
 
 import librosa
+import librosa.display
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
+
+matplotlib.use("Agg")  # non-interactive backend — no display needed
 
 # Krumhansl-Schmuckler key profiles
 _MAJ = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
@@ -46,6 +54,63 @@ def _segment_features(y: np.ndarray, sr: int) -> dict:
     }
 
 
+def _render_spectrogram(y: np.ndarray, sr: int) -> str:
+    """Render a mel-spectrogram as a base64-encoded PNG string.
+
+    The image gives Claude's vision model direct access to frequency/time content:
+      - Sustained horizontal bands → strings, pads, sustained piano
+      - Vertical striations → percussive transients, piano attacks, drums
+      - Harmonic overtone series → instrument family identification
+      - Brightness distribution → timbral character
+    """
+    # Use a 2-panel layout: mel-spectrogram top, onset/chroma bottom
+    fig, axes = plt.subplots(3, 1, figsize=(10, 8), facecolor="#111")
+    fig.subplots_adjust(hspace=0.45)
+
+    # ── Panel 1: Mel-spectrogram ──────────────────────────────────────
+    mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, fmax=8000)
+    mel_db = librosa.power_to_db(mel, ref=np.max)
+    img = librosa.display.specshow(
+        mel_db, y_axis="mel", x_axis="time", sr=sr, fmax=8000, ax=axes[0], cmap="magma"
+    )
+    axes[0].set_title("Mel Spectrogram", color="white", fontsize=9)
+    axes[0].tick_params(colors="white", labelsize=7)
+    axes[0].set_ylabel("Hz", color="white", fontsize=7)
+    axes[0].set_facecolor("#111")
+    for spine in axes[0].spines.values():
+        spine.set_edgecolor("#444")
+
+    # ── Panel 2: Chromagram ───────────────────────────────────────────
+    chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+    librosa.display.specshow(
+        chroma, y_axis="chroma", x_axis="time", sr=sr, ax=axes[1], cmap="coolwarm"
+    )
+    axes[1].set_title("Chroma (Pitch Content)", color="white", fontsize=9)
+    axes[1].tick_params(colors="white", labelsize=7)
+    axes[1].set_ylabel("Pitch", color="white", fontsize=7)
+    axes[1].set_facecolor("#111")
+    for spine in axes[1].spines.values():
+        spine.set_edgecolor("#444")
+
+    # ── Panel 3: Onset strength (rhythm profile) ──────────────────────
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    times = librosa.times_like(onset_env, sr=sr)
+    axes[2].fill_between(times, onset_env, color="#e85d04", alpha=0.8)
+    axes[2].set_title("Onset Strength (Rhythm / Attack)", color="white", fontsize=9)
+    axes[2].tick_params(colors="white", labelsize=7)
+    axes[2].set_xlabel("Time (s)", color="white", fontsize=7)
+    axes[2].set_ylabel("Strength", color="white", fontsize=7)
+    axes[2].set_facecolor("#111")
+    for spine in axes[2].spines.values():
+        spine.set_edgecolor("#444")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=90, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return base64.standard_b64encode(buf.read()).decode()
+
+
 def extract_features(audio_path: Path) -> dict:
     y, sr = librosa.load(str(audio_path), mono=True, duration=180.0)  # cap at 3 min
 
@@ -63,8 +128,6 @@ def extract_features(audio_path: Path) -> dict:
     mfcc_mean = [round(float(x), 2) for x in mfcc.mean(axis=1)]
 
     # ── Spectral contrast (7 bands) ───────────────────────────────────
-    # High contrast in upper bands → bright, percussive (strings, brass, cymbals)
-    # Low overall contrast → smooth, sustained (pads, choir)
     contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
     contrast_mean = [round(float(x), 2) for x in contrast.mean(axis=1)]
 
@@ -84,6 +147,9 @@ def extract_features(audio_path: Path) -> dict:
     seg_start  = _segment_features(y[:third], sr)
     seg_middle = _segment_features(y[third:2*third], sr)
     seg_end    = _segment_features(y[2*third:], sr)
+
+    # ── Mel-spectrogram image for Claude vision ───────────────────────
+    spectrogram_b64 = _render_spectrogram(y, sr)
 
     return {
         # Basics
@@ -110,4 +176,7 @@ def extract_features(audio_path: Path) -> dict:
 
         # Raw chroma
         "chroma_profile": [round(float(x), 4) for x in chroma],
+
+        # Spectrogram image (base64 PNG) — sent to Claude vision
+        "spectrogram_b64": spectrogram_b64,
     }

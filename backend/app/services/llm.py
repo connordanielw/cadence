@@ -1,7 +1,12 @@
 """Claude tagging service.
 
-Given raw PDF text or an audio feature dict, returns structured tags and a one-paragraph
-natural-language description that we'll later embed.
+Given raw PDF text or an audio feature dict (including a mel-spectrogram image),
+returns structured tags and a one-paragraph natural-language description.
+
+For audio, we pass Claude:
+  1. A mel-spectrogram image (3-panel: mel-freq, chromagram, onset strength)
+     so its vision model can directly "see" the frequency / rhythm content.
+  2. The numeric feature vector for precise BPM, key, dynamics, etc.
 """
 from __future__ import annotations
 
@@ -15,24 +20,34 @@ from app.config import settings
 
 _SYSTEM = """You are an expert music analyst tagging pieces for a semantic search library.
 
-For AUDIO features you receive a JSON object with:
-  - tempo_bpm, estimated_key, estimated_mode — use these directly
-  - mfcc_mean — timbral fingerprint. High MFCC[1] = bright/thin; low = warm/full.
-    MFCC[0] is loudness. Higher-order MFCCs capture texture.
-  - spectral_contrast_mean — 7 frequency bands. High values in bands 4-6 suggest
-    bright/percussive timbres (strings, brass, cymbals, piano attacks).
-    Low, uniform contrast = smooth pads, choir, sustained textures.
-  - dynamic_range — difference between loudest and quietest moments. High = dramatic.
-  - onset_strength_mean — rhythmic attack density. High = percussive/rhythmic,
-    low = legato/sustained.
-  - segment_start / segment_middle / segment_end — per-section snapshots of energy
-    and onset strength. USE THESE to detect structural changes: e.g. if segment_end
-    has much higher onset_strength_peak than the middle, there are likely drums or
-    strong percussive events at the end. If rms_energy rises dramatically in the
-    middle, there is a climax or build.
+You will receive either:
 
-For SHEET MUSIC you receive OCR'd text. Look for tempo markings, dynamics, clefs,
-key signatures, and instrument labels.
+A) AUDIO — a mel-spectrogram image (3 panels) PLUS a JSON feature vector.
+
+   Reading the spectrogram:
+   - Panel 1 (Mel Spectrogram, magma colormap): frequency (y-axis, Hz) over time (x-axis).
+     Bright horizontal bands = sustained tones. Bright vertical stripes = percussive attacks.
+     Low bright bands (100-500 Hz) = bass / cello / viola / left-hand piano.
+     Mid bands (500-3000 Hz) = violin, clarinet, mid piano.
+     High bands (3k-8k Hz) = flute overtones, cymbal shimmer, high string harmonics.
+     Dense harmonic stacks (multiple parallel bands) = strings ensemble or piano.
+     Isolated bright blobs with fast decay = piano key strikes.
+   - Panel 2 (Chroma): pitch class energy over time.
+     Concentrated rows = clear tonal centre. Diffuse = atonal or noisy.
+   - Panel 3 (Onset Strength): rhythmic attack density.
+     Tall spikes = hard percussion / piano attacks. Low flat line = sustained, legato.
+
+   Feature vector fields:
+     tempo_bpm, estimated_key, estimated_mode — use these directly
+     mfcc_mean — MFCC[1] high = bright/thin; low = warm/full. MFCC[0] = loudness.
+     spectral_contrast_mean — 7 bands. High upper-band contrast = bright/percussive.
+     dynamic_range — difference between loudest and quietest moments.
+     onset_strength_mean — High = percussive/rhythmic, low = legato/sustained.
+     segment_start / segment_middle / segment_end — per-section snapshots.
+       Use these for structural changes (quiet intro → climax → outro, etc.)
+
+B) SHEET MUSIC — OCR'd text. Look for tempo markings, dynamics, clefs,
+   key signatures, instrument labels.
 
 Return ONLY a single JSON object — no prose, no markdown fences:
 
@@ -43,10 +58,11 @@ Return ONLY a single JSON object — no prose, no markdown fences:
   bpm:             integer from tempo_bpm (audio) or metronome mark (sheet music), or null
   era:             "Baroque" | "Classical" | "Romantic" | "Impressionist" |
                    "20th century" | "Contemporary" | "Film/Game" | "Jazz" | null
-  instrumentation: array of specific instruments/textures you can infer. For audio,
-                   use spectral_contrast and mfcc to infer (e.g. high upper-band
-                   contrast + high onset = strings/percussion; smooth low contrast =
-                   pads/choir). Be as specific as features allow.
+  instrumentation: array of specific instruments/textures you can confidently identify.
+                   Use the spectrogram visually — look for sustained harmonic stacks
+                   (strings), isolated bright transients (piano), dense high-frequency
+                   shimmer (cymbals/brass). Be specific but honest — only list what
+                   the spectrogram clearly shows.
   summary:         one sentence capturing the piece's arc — mention if it builds,
                    transitions, or ends differently than it begins.
 
@@ -70,12 +86,12 @@ def _client_singleton() -> anthropic.Anthropic:
 
 def tag(context: str | dict[str, Any]) -> dict:
     """Return the parsed JSON tag object."""
-    user = _format_context(context)
+    messages = _build_messages(context)
     msg = _client_singleton().messages.create(
         model=settings.claude_model,
         max_tokens=600,
         system=_SYSTEM,
-        messages=[{"role": "user", "content": user}],
+        messages=messages,
     )
     text = "".join(block.text for block in msg.content if block.type == "text")
     return _parse_json(text)
@@ -83,7 +99,12 @@ def tag(context: str | dict[str, Any]) -> dict:
 
 def describe(tags: dict, context: str | dict[str, Any]) -> str:
     """One-paragraph description we then embed for search."""
-    payload = json.dumps({"tags": tags, "context": _format_context(context)[:4000]})
+    # Strip the spectrogram image from context for the describe call (saves tokens)
+    if isinstance(context, dict):
+        context_clean = {k: v for k, v in context.items() if k != "spectrogram_b64"}
+    else:
+        context_clean = context
+    payload = json.dumps({"tags": tags, "context": _format_context_text(context_clean)[:4000]})
     msg = _client_singleton().messages.create(
         model=settings.claude_model,
         max_tokens=240,
@@ -93,7 +114,36 @@ def describe(tags: dict, context: str | dict[str, Any]) -> str:
     return "".join(block.text for block in msg.content if block.type == "text").strip()
 
 
-def _format_context(context: str | dict[str, Any]) -> str:
+def _build_messages(context: str | dict[str, Any]) -> list[dict]:
+    """Build the messages array, including the spectrogram image for audio."""
+    if isinstance(context, dict) and "spectrogram_b64" in context:
+        spec_b64 = context["spectrogram_b64"]
+        # Feature vector without the image (keep it readable)
+        features = {k: v for k, v in context.items() if k != "spectrogram_b64"}
+        content = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": spec_b64,
+                },
+            },
+            {
+                "type": "text",
+                "text": (
+                    "Above is the mel-spectrogram (3 panels) for this audio piece.\n\n"
+                    "Audio feature vector:\n\n"
+                    + json.dumps(features, indent=2)
+                ),
+            },
+        ]
+        return [{"role": "user", "content": content}]
+    else:
+        return [{"role": "user", "content": _format_context_text(context)}]
+
+
+def _format_context_text(context: str | dict[str, Any]) -> str:
     if isinstance(context, str):
         return f"PDF text (truncated):\n\n{context[:6000]}"
     return f"Audio features:\n\n{json.dumps(context, indent=2)}"

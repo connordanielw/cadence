@@ -19,6 +19,7 @@ dependencies = [
   "pdf2image>=1.17",
   "pytesseract>=0.3.13",
   "librosa>=0.10.2",
+  "matplotlib>=3.9",
   "soundfile>=0.12.1",
   "numpy>=2.0",
   "PyJWT[cryptography]>=2.8",

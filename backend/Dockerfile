@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     libsndfile1 \
     ffmpeg \
+    libfreetype6-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
