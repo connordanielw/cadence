@@ -15,19 +15,16 @@ import anthropic
 
 from app.config import settings
 
-_EXPAND_SYSTEM = """You are writing a description of a piece of music for a semantic search index.
+_EXPAND_SYSTEM = """You are writing a short description of a piece of music for a semantic search index.
 
-The user has given you a rough description of what the piece sounds like. Expand it into
-a rich, specific 2-3 sentence paragraph that captures instruments, texture, mood, tempo feel,
-and any structural arc (e.g. builds, transitions, quiet endings).
+The user has described what the piece sounds like. Rewrite it as 2-3 clean sentences.
 
 Rules:
-- Plain prose only — no headers, no bullets
-- No hedging phrases like "seems to" or "appears to" — write with confidence
-- Stay true to what the user described; do not invent details they didn't mention
-- Be specific enough that a semantic search for "dark driving strings" or "calm impressionist piano"
-  would correctly match or not match this piece
-- Do not mention the title or composer"""
+- Stay very close to what the user said — do not add details they didn't mention
+- No flowery or poetic language. Plain and direct.
+- No hedging phrases like "seems to" or "appears to"
+- Do not mention the title or composer
+- The goal is searchability, not prose quality"""
 
 _PDF_SYSTEM = """You are an expert music analyst tagging sheet music for a semantic search library.
 
