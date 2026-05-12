@@ -116,6 +116,11 @@ export async function upload(file: File, token?: string | null): Promise<Piece> 
     body: fd,
     headers: authHeader(token),
   });
-  if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
+  if (!r.ok) {
+    if (r.status === 409) throw new Error("This file is already in your library.");
+    let detail = "";
+    try { detail = (await r.json()).detail ?? ""; } catch { /* ignore */ }
+    throw new Error(detail || `Upload failed: ${r.status}`);
+  }
   return r.json();
 }
