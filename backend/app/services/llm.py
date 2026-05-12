@@ -57,7 +57,10 @@ Return ONLY a single JSON object — no prose, no markdown fences:
                    unreliable and will be set manually by the user. For sheet
                    music only: e.g. "D minor".
   tempo_feel:      "still" | "lethargic" | "moderate" | "brisk" | "driving" | "frantic" | null
-  bpm:             integer from tempo_bpm (audio) or metronome mark (sheet music), or null
+  bpm:             Use tempo_bpm from the feature vector exactly as given, or null if
+                   tempo_bpm is null/absent. Do NOT estimate BPM yourself — if the
+                   feature vector doesn't provide it, return null. For sheet music only:
+                   use the metronome mark if present.
   era:             "Baroque" | "Classical" | "Romantic" | "Impressionist" |
                    "20th century" | "Contemporary" | "Film/Game" | "Jazz" | null
   instrumentation: array of specific instruments/textures you can confidently identify.

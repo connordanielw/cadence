@@ -103,8 +103,18 @@ def extract_features(audio_path: Path) -> dict:
     duration = float(librosa.get_duration(y=y, sr=sr))
 
     # ── Global tempo ──────────────────────────────────────────────────
-    tempo_raw, _ = librosa.beat.beat_track(y=y, sr=sr)
-    tempo = float(np.asarray(tempo_raw).flat[0])
+    # Only report BPM when onset strength is strong and consistent enough
+    # to suggest a real rhythmic pulse. For rubato/ambient/classical music
+    # with no clear percussion, beat tracking is unreliable — return None
+    # so Claude outputs null rather than a wrong number.
+    onset_env_tempo = librosa.onset.onset_strength(y=y, sr=sr)
+    onset_mean_for_tempo = float(onset_env_tempo.mean())
+    tempo_raw, _ = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env_tempo)
+    raw_tempo = float(np.asarray(tempo_raw).flat[0])
+    # Only report BPM when there's a clear rhythmic pulse (onset mean > 0.5).
+    # Sustained/legato music (strings, pads, drones) sits well below this —
+    # better to return null than a hallucinated BPM.
+    tempo: float | None = round(raw_tempo, 1) if onset_mean_for_tempo > 0.5 else None
 
     # Key detection intentionally omitted — Krumhansl-Schmuckler is
     # unreliable on real recordings. Users set key manually via the edit UI.
@@ -123,8 +133,8 @@ def extract_features(audio_path: Path) -> dict:
     dynamic_range = round(float(rms_full.max() - rms_full.min()), 5)
     rms_mean = round(float(rms_full.mean()), 5)
 
-    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-    onset_mean = round(float(onset_env.mean()), 4)
+    onset_env = onset_env_tempo  # reuse already-computed envelope
+    onset_mean = round(onset_mean_for_tempo, 4)
 
     rolloff = float(librosa.feature.spectral_rolloff(y=y, sr=sr).mean())
     zcr = float(librosa.feature.zero_crossing_rate(y=y).mean())
@@ -141,7 +151,8 @@ def extract_features(audio_path: Path) -> dict:
     return {
         # Basics
         "duration_sec": round(duration, 1),
-        "tempo_bpm": round(tempo, 1),
+        # tempo_bpm is None when onset strength is too weak/irregular to trust
+        "tempo_bpm": tempo,
 
         # Global energy & colour
         "rms_energy_mean": rms_mean,
