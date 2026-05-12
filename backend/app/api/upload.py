@@ -1,37 +1,38 @@
-"""Upload + ingestion endpoint.
+"""Upload endpoint.
 
-For an MVP we process inline. In production this would push to a queue
-(Celery / RQ / Cloud Tasks) and the route would return immediately with a task id.
+Audio: file + user description → Claude expands description → embed → ready.
+PDF:   file → OCR → Claude tags + describes → embed → ready.
+
+Synchronous — no background tasks or polling needed.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
 from app.core import storage
-from app.db import SessionLocal
 from app.deps import get_db
 from app.models import Piece
 from app.schemas import PieceOut
-from app.services import audio_processor, embedding, llm, pdf_processor
+from app.services import embedding, llm, pdf_processor
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
-PDF_EXTS = {".pdf"}
+PDF_EXTS   = {".pdf"}
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aiff", ".aif"}
 
 
-@router.post("", response_model=PieceOut, status_code=202)
+@router.post("", response_model=PieceOut, status_code=201)
 async def upload(
-    background: BackgroundTasks,
     file: UploadFile = File(...),
+    description: str = Form(...),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
     name = (file.filename or "").lower()
-    ext = "." + name.rsplit(".", 1)[-1] if "." in name else ""
+    ext  = "." + name.rsplit(".", 1)[-1] if "." in name else ""
 
     if ext in PDF_EXTS:
         source_type = "pdf"
@@ -40,7 +41,7 @@ async def upload(
     else:
         raise HTTPException(415, f"Unsupported file type: {ext or 'unknown'}")
 
-    # Reject if this user already has a piece with the same filename
+    # Reject duplicate filenames for this user
     existing = db.scalars(
         select(Piece).where(
             Piece.clerk_user_id == user_id,
@@ -48,57 +49,47 @@ async def upload(
         )
     ).first()
     if existing:
-        raise HTTPException(409, f"A piece named '{file.filename}' already exists in your library.")
+        raise HTTPException(409, f"'{file.filename}' is already in your library.")
 
-    stored = storage.save_upload(file.filename or "upload", file.file)
+    title  = file.filename or "Untitled"
+    stored = storage.save_upload(title, file.file)
+
     piece = Piece(
         clerk_user_id=user_id,
-        title=file.filename or "Untitled",
+        title=title,
         source_type=source_type,
         source_path=stored,
-        status="pending",
+        status="processing",
     )
     db.add(piece)
     db.commit()
     db.refresh(piece)
 
-    background.add_task(_process_piece, piece.id)
-    return piece
-
-
-def _process_piece(piece_id: int) -> None:
-    """Run extraction, tagging, embedding. Reopens its own session so it survives
-    the request lifecycle."""
-    db = SessionLocal()
     try:
-        piece = db.get(Piece, piece_id)
-        if piece is None:
-            return
-        try:
-            piece.status = "processing"
-            db.commit()
+        path = storage.absolute_path(stored)
 
-            path = storage.absolute_path(piece.source_path)
-
-            if piece.source_type == "pdf":
-                piece.raw_text = pdf_processor.extract_text(path)
-                context = piece.raw_text
-            else:
-                piece.audio_features = audio_processor.extract_features(path)
-                context = piece.audio_features
-
-            tags = llm.tag(context)
+        if source_type == "pdf":
+            # PDF: read the score text, let Claude derive everything
+            raw_text = pdf_processor.extract_text(path)
+            piece.raw_text = raw_text
+            tags = llm.tag_pdf(raw_text)
             piece.llm_tags = tags
+            final_description = llm.describe_pdf(tags, raw_text)
+        else:
+            # Audio: user told us what it sounds like — Claude polishes it
+            tags = {}
+            piece.llm_tags = tags
+            final_description = llm.expand_description(description, title)
 
-            description = llm.describe(tags, context)
-            piece.description = description
+        piece.description = final_description
+        piece.embedding   = embedding.embed(final_description, input_type="document")
+        piece.status      = "ready"
+        db.commit()
+        db.refresh(piece)
+    except Exception as exc:  # noqa: BLE001
+        piece.status = "failed"
+        piece.error  = (repr(exc) or type(exc).__name__)[:2000]
+        db.commit()
+        db.refresh(piece)
 
-            piece.embedding = embedding.embed(description, input_type="document")
-            piece.status = "ready"
-            db.commit()
-        except Exception as e:  # noqa: BLE001 — store the message and move on
-            piece.status = "failed"
-            piece.error = (repr(e) or type(e).__name__)[:2000]
-            db.commit()
-    finally:
-        db.close()
+    return piece

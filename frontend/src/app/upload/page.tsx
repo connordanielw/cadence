@@ -1,99 +1,141 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import PieceCard      from "@/components/PieceCard";
-import UploadDropzone from "@/components/UploadDropzone";
-import { getPiece, upload, type Piece } from "@/lib/api";
+import PieceCard from "@/components/PieceCard";
+import { upload, type Piece } from "@/lib/api";
 
-const STEPS = [
-  { n: "01", title: "Drop your file",         desc: "PDF, MP3, WAV, FLAC, M4A, OGG, or AIFF — drop it in or click to browse." },
-  { n: "02", title: "Cadence processes it",   desc: "Audio is transcribed; PDFs are parsed for notation and structure." },
-  { n: "03", title: "Claude generates tags",  desc: "Mood, key, era, tempo, instrumentation — extracted automatically." },
-  { n: "04", title: "Search semantically",    desc: "Describe what you want in plain English and Cadence finds the closest match." },
-];
+const ACCEPT = ".pdf,.mp3,.wav,.flac,.m4a,.ogg,.aiff,.aif";
 
 export default function UploadPage() {
   const { getToken, isLoaded } = useAuth();
-  const [pending, setPending] = useState<Piece[]>([]);
-  const [busy,    setBusy]    = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
 
-  async function handle(files: File[]) {
-    if (!isLoaded) return;
-    setBusy(true); setError(null);
-    try {
-      const token = await getToken();
-      const created = await Promise.all(files.map((f) => upload(f, token)));
-      setPending((prev) => [...created, ...prev]);
-    }
-    catch (e) { setError(e instanceof Error ? e.message : "Unknown error"); }
-    finally   { setBusy(false); }
+  // Step 1: file selected
+  const [file, setFile]         = useState<File | null>(null);
+  const [hot,  setHot]          = useState(false);
+  const inputRef                = useRef<HTMLInputElement>(null);
+
+  // Step 2: description
+  const [description, setDesc]  = useState("");
+
+  // Submission
+  const [busy,    setBusy]      = useState(false);
+  const [error,   setError]     = useState<string | null>(null);
+  const [added,   setAdded]     = useState<Piece[]>([]);
+
+  function pickFile(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setFile(files[0]);
+    setError(null);
   }
 
-  // Poll for status updates on pieces that are still in-flight
-  const refreshPending = useCallback(async () => {
-    const inFlight = pending.filter((p) => p.status === "pending" || p.status === "processing");
-    if (inFlight.length === 0) return;
-    const token = await getToken();
-    const updated = await Promise.all(inFlight.map((p) => getPiece(p.id, token).catch(() => p)));
-    setPending((prev) =>
-      prev.map((p) => updated.find((u) => u.id === p.id) ?? p)
-    );
-  }, [pending, getToken]);
+  function reset() {
+    setFile(null);
+    setDesc("");
+    setError(null);
+    if (inputRef.current) inputRef.current.value = "";
+  }
 
-  useEffect(() => {
-    const inFlight = pending.some((p) => p.status === "pending" || p.status === "processing");
-    if (!inFlight) return;
-    const id = setInterval(() => void refreshPending(), 3000);
-    return () => clearInterval(id);
-  }, [pending, refreshPending]);
+  async function submit() {
+    if (!file || !description.trim() || !isLoaded) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const token  = await getToken();
+      const piece  = await upload(file, description.trim(), token);
+      setAdded(prev => [piece, ...prev]);
+      reset();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canSubmit = !!file && description.trim().length >= 10 && !busy;
 
   return (
     <div>
-      {/* Window */}
       <div className="win">
         <div className="win__bar">
           <h1>Upload</h1>
-          <p>Add sheet music or audio to your library. Cadence tags it with Claude and makes it semantically searchable.</p>
+          <p>Add a piece to your library. Drop the file, describe what it sounds like, and Cadence makes it searchable.</p>
         </div>
 
-        <div className="win__body win__body--split">
-          {/* Left — how it works */}
-          <div>
-            <h3 style={{ marginBottom: 18, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>How it works</h3>
-            <div className="process-steps">
-              {STEPS.map((s) => (
-                <div key={s.n} className="process-step">
-                  <div className="process-step__num">{s.n}</div>
-                  <div>
-                    <p className="process-step__title">{s.title}</p>
-                    <p className="process-step__desc">{s.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="win__body">
+          {!file ? (
+            /* ── Step 1: pick a file ── */
+            <label
+              className={`dropzone ${hot ? "dropzone--hot" : ""}`}
+              onDragOver={(e) => { e.preventDefault(); setHot(true); }}
+              onDragLeave={() => setHot(false)}
+              onDrop={(e) => { e.preventDefault(); setHot(false); pickFile(e.dataTransfer.files); }}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept={ACCEPT}
+                hidden
+                onChange={(e) => pickFile(e.target.files)}
+              />
+              <span className="dropzone__icon">🎵</span>
+              <div className="dropzone__label">Drop a file here, or click to browse</div>
+              <div className="dropzone__hint">PDF · MP3 · WAV · FLAC · M4A · OGG · AIFF</div>
+            </label>
+          ) : (
+            /* ── Step 2: describe it ── */
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div className="upload-file-row">
+                <span className="upload-file-name">{file.name}</span>
+                <button className="btn btn--ghost" style={{ fontSize: 12, padding: "3px 10px" }} onClick={reset} disabled={busy}>
+                  Change
+                </button>
+              </div>
 
-          {/* Right — dropzone */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <UploadDropzone onUpload={handle} busy={busy} />
-            {error && <p style={{ color: "var(--strawberry)", fontSize: 14, margin: 0 }}>{error}</p>}
-          </div>
+              <div>
+                <label className="upload-label">
+                  Describe this piece
+                  <span className="upload-label__hint"> — instruments, mood, tempo, feel. The more specific, the better the search.</span>
+                </label>
+                <textarea
+                  className="upload-desc-input"
+                  rows={4}
+                  placeholder={
+                    file.name.match(/\.pdf$/i)
+                      ? "e.g. Baroque keyboard suite in D minor, ornate and precise, lots of counterpoint"
+                      : "e.g. Dark, dense strings with driving rhythm — tense and cinematic, builds throughout"
+                  }
+                  value={description}
+                  onChange={(e) => setDesc(e.target.value)}
+                  disabled={busy}
+                  autoFocus
+                />
+                <p className="upload-char-hint" style={{ opacity: description.length < 10 ? 1 : 0 }}>
+                  At least a few words to go on
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <button className="btn" onClick={submit} disabled={!canSubmit}>
+                  {busy ? "Adding to library…" : "Add to library"}
+                </button>
+                {busy && <span className="muted" style={{ fontSize: 13 }}>Claude is expanding your description…</span>}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p style={{ color: "var(--strawberry)", fontSize: 14, marginTop: 12 }}>{error}</p>
+          )}
         </div>
       </div>
 
-      {/* Just added */}
-      {pending.length > 0 && (
-        <div>
+      {added.length > 0 && (
+        <div style={{ marginTop: 32 }}>
           <h2 style={{ marginBottom: 6, fontSize: 16 }}>Just added</h2>
-          <p className="muted" style={{ marginBottom: 16, fontSize: 14 }}>
-            {pending.some((p) => p.status === "pending" || p.status === "processing")
-              ? "Processing…"
-              : "Done — head to the Library to search."}
-          </p>
+          <p className="muted" style={{ marginBottom: 16, fontSize: 14 }}>Head to the Library to search.</p>
           <div className="results">
-            {pending.map((p) => <PieceCard key={p.id} piece={p} />)}
+            {added.map((p) => <PieceCard key={p.id} piece={p} />)}
           </div>
         </div>
       )}

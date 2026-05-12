@@ -108,9 +108,10 @@ export async function search(
   return r.json();
 }
 
-export async function upload(file: File, token?: string | null): Promise<Piece> {
+export async function upload(file: File, description: string, token?: string | null): Promise<Piece> {
   const fd = new FormData();
   fd.append("file", file);
+  fd.append("description", description);
   const r = await fetch(`${UPLOAD_ROOT}/upload`, {
     method: "POST",
     body: fd,
