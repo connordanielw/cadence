@@ -62,8 +62,8 @@ export default function HomePage() {
           <p className="lp-section-label">How it works</p>
           <h2 className="lp-how__title">Three steps from upload to searchable.</h2>
           <ol className="lp-steps">
-            <li><strong>Drop a file.</strong> PDF, MP3, WAV, FLAC — any format.</li>
-            <li><strong>Claude analyses it.</strong> Mood, key, era, instrumentation — all extracted.</li>
+            <li><strong>Drop a file.</strong> any format.PDF, MP3, WAV, FLAC </li>
+            <li><strong>Claude analyses it.</strong> Mood, key, era, instrumentation are all extracted.</li>
             <li><strong>Search naturally.</strong> "Melancholy Romantic piano" returns exactly that.</li>
           </ol>
           <HeroCta marginTop={8} />
@@ -83,7 +83,7 @@ export default function HomePage() {
                   <span className="demo-result__score">97%</span>
                   <div>
                     <div className="demo-result__name">Gymnopédie No.1</div>
-                    <div className="demo-result__tags">melancholy · E major · Romantic</div>
+                    <div className="demo-result__tags">melancholy · D major · Romantic</div>
                   </div>
                 </div>
                 <div className="demo-result">
